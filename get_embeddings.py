@@ -30,7 +30,7 @@ def main(args):
     
     if isinstance(model, DenoisePretrainModel) and not isinstance(model, PredictionModel):
         model = PredictionModel.load_from_pretrained(args.model_ckpt)
-    model = model.to("cuda")
+    model = model.to("cpu")
     batch_size = args.batch_size
 
     embeddings = []
@@ -38,59 +38,60 @@ def main(args):
         items = dataset.data[idx:min(idx+batch_size, len(dataset))]
 
         outputs = []
-        try:
-            for item in items:
-                outputs.append({"id": item["id"]})
-            if isinstance(dataset, ProtInterfaceDataset):
-                batch_items = [item["prot_data"] for item in items]
-            else:
-                batch_items = [item["data"] for item in items]
-            batch = PDBDataset.collate_fn(batch_items)
-            batch = Trainer.to_device(batch, "cuda")
-            return_obj = model.infer(batch)
+        #try:
+        for item in items:
+            outputs.append({"id": item["id"]})
+        if isinstance(dataset, ProtInterfaceDataset):
+            batch_items = [item["prot_data"] for item in items]
+        else:
+            batch_items = [item["data"] for item in items]
+        batch = PDBDataset.collate_fn(batch_items)
+        batch = Trainer.to_device(batch, "cpu")
+        return_obj = model.infer(batch)
             
-            curr_block = 0
-            curr_atom = 0
-            for i, item in enumerate(items):
-                num_blocks = len(item["data"]["B"])
-                num_atoms = len(item["data"]["A"])
+        curr_block = 0
+        curr_atom = 0
+        for i, item in enumerate(items):
+            num_blocks = len(item["data"]["B"])
+            num_atoms = len(item["data"]["A"])
 
-                outputs[i]["graph_embedding"] = return_obj.graph_repr[i].detach().cpu().numpy()
-                outputs[i]["block_embedding"] = return_obj.block_repr[curr_block: curr_block + num_blocks].detach().cpu().numpy()
-                outputs[i]["atom_embedding"] = return_obj.unit_repr[curr_atom: curr_atom + num_atoms].detach().cpu().numpy()
-                outputs[i]["block_id"] = item["data"]["B"]
-                outputs[i]["atom_id"] = item["data"]["A"]
+            outputs[i]["graph_embedding"] = return_obj.graph_repr[i].detach().cpu().numpy()
+            outputs[i]["block_embedding"] = return_obj.block_repr[curr_block: curr_block + num_blocks].detach().cpu().numpy()
+            outputs[i]["atom_embedding"] = return_obj.unit_repr[curr_atom: curr_atom + num_atoms].detach().cpu().numpy()
+            outputs[i]["block_id"] = item["data"]["B"]
+            outputs[i]["atom_id"] = item["data"]["A"]
 
-                curr_block += num_blocks
-                curr_atom += num_atoms
-        except Exception as e:
-            if "CUDA out of memory" in str(e):
-                torch.cuda.empty_cache()
-                print("CUDA out of memory, reducing batch size to 1 for this batch.")
-                outputs = []
+            curr_block += num_blocks
+            curr_atom += num_atoms
+        #except Exception as e:
+            #if "CPU out of memory" in str(e):
+                #torch.cuda.empty_cache()
+                #print("CUDA out of memory, reducing batch size to 1 for this batch.")
+                #outputs = []
                 # go through the batch one by one
-                for item in items:
-                    try:
-                        output = {"id": item["id"]}
-                        batch = PDBDataset.collate_fn([item["data"] if not isinstance(dataset, ProtInterfaceDataset) else item["prot_data"]])
-                        batch = Trainer.to_device(batch, "cuda")
-                        return_obj = model.infer(batch)
-                        output["graph_embedding"] = return_obj.graph_repr[0].detach().cpu().numpy()
-                        output["block_embedding"] = return_obj.block_repr.detach().cpu().numpy()
-                        output["atom_embedding"] = return_obj.unit_repr.detach().cpu().numpy()
-                        output["block_id"] = item["data"]["B"]
-                        output["atom_id"] = item["data"]["A"]
-                        outputs.append(output)
-                    except Exception as e:
-                        print(f"Error processing item {item['id']}: {e}")
-                        torch.cuda.empty_cache()
-                        continue
-            else:
-                import pdb; pdb.set_trace()
-                raise e
+                #for item in items:
+                    #try:
+                        #output = {"id": item["id"]}
+                        #batch = PDBDataset.collate_fn([item["data"] if not isinstance(dataset, ProtInterfaceDataset) else item["prot_data"]])
+                        #batch = Trainer.to_device(batch, "cpu")
+                        #return_obj = model.infer(batch)
+                        #output["graph_embedding"] = return_obj.graph_repr[0].detach().cpu().numpy()
+                        #output["block_embedding"] = return_obj.block_repr.detach().cpu().numpy()
+                        #output["atom_embedding"] = return_obj.unit_repr.detach().cpu().numpy()
+                        #output["block_id"] = item["data"]["B"]
+                        #output["atom_id"] = item["data"]["A"]
+                        #outputs.append(output)
+                    #except Exception as e:
+                        #print(f"Error processing item {item['id']}: {e}")
+                        #torch.cuda.empty_cache()
+                        #continue
+            #else:
+                #import pdb; pdb.set_trace()
+                #raise e
         embeddings.extend(outputs)
     
     with open(args.output_path, "wb") as f:
+        if args.output_path #tempory file
         pickle.dump(embeddings, f)
     print(f"Saving processed data to {args.output_path}. Total of {len(embeddings)} items.")
 
