@@ -29,6 +29,10 @@ pip3 install scipy==1.13.1 rdkit-pypi==2022.9.5 openbabel-wheel==3.1.1.20 biopyt
 pip3 install umap-learn matplotlib seaborn plotly
 
 
+
 #update some packages (used in tqdm)
 pip3 install ipywidgets 
 conda install -n base -c conda-forge jupyterlab_widgets
+
+#to play with umap.plot
+pip3 install bokeh datashader holoviews scikit-image colorcet
