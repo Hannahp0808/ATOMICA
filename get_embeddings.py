@@ -91,7 +91,6 @@ def main(args):
         embeddings.extend(outputs)
     
     with open(args.output_path, "wb") as f:
-        if args.output_path #tempory file
         pickle.dump(embeddings, f)
     print(f"Saving processed data to {args.output_path}. Total of {len(embeddings)} items.")
 
