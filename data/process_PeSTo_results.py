@@ -12,8 +12,8 @@ from .dataset import blocks_to_data
 from .converter.pdb_to_list_blocks import atoms_array_to_blocks, get_residues
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Process protein structures based on B-factor cutoff.")
-    parser.add_argument('--b_factor_cutoff', type=float, required=True, help='B-factor cutoff value')
+    parser = argparse.ArgumentParser(description="Process protein structures based on B-factor cutoff.") #B-factor cutoff = PeSTo confidence value 
+    parser.add_argument('--b_factor_cutoff', type=float, required=True, help='B-factor cutoff value') #confidence cutoff 
     parser.add_argument('--plddt_cutoff', type=float, default=None, required=False, help='pLDDT cutoff value')
     parser.add_argument('--data_dir', type=str, required=True, help='Directory containing the protein data files processed by PESTO')
     parser.add_argument('--raw_data_dir', type=str, default=None, required=False, help='Directory containing the AF2 protein data files')
@@ -51,6 +51,7 @@ if __name__ == "__main__":
     binders = ['protein', 'nucleic_acid', 'ion', 'ligand', 'lipid']
     for prot_name in tqdm(prot_names, total=len(prot_names)):
 
+        #filer by plddt_cutoff from AF2
         if args.plddt_cutoff and args.raw_data_dir:
             raw_pdb_file_path = os.path.join(args.raw_data_dir, f'{prot_name}.pdb')
             if not os.path.exists(raw_pdb_file_path):
@@ -61,8 +62,8 @@ if __name__ == "__main__":
                 raw_pdb_file.read(file)
             raw_atom_array = pdb.get_structure(raw_pdb_file)[0]
             plddt = pdb.PDBFile.get_b_factor(raw_pdb_file)[0]
-
-        for i in range(5):
+        
+        for i in range(5): #5 types of binders outputted from PeSTo, run the code 5 times
             pdb_file_path = os.path.join(args.data_dir, f'{prot_name}_i{i}.pdb')
             if not os.path.exists(pdb_file_path):
                 print(f"PESTO processed PDB file not found: {pdb_file_path}")
@@ -76,7 +77,7 @@ if __name__ == "__main__":
 
             if args.plddt_cutoff and args.raw_data_dir:
                 if len(raw_atom_array) != len(atom_array):
-                    print(f"Atom array length mismatch between PESTO file and AF2 file: {prot_name}")
+                    print(f"Atom array length mismatch between PESTO file and AF2 file: {prot_name}") #does the raw and annotated protein structure match?
                     continue
                 atom_array = atom_array[plddt > args.plddt_cutoff]
                 b_factor = b_factor[plddt > args.plddt_cutoff]
@@ -89,10 +90,10 @@ if __name__ == "__main__":
             else:
                 residue_starts, residues = get_residues(atom_array_filtered)
                 print(f"{prot_name} - {binders[i]}: {len(residues)} residues")
-                if len(residues) > 5:
+                if len(residues) > 5: #binding site w more than 5 amino acid residues that satisfy the requirements 
                     atom_array.res_tuples = list(zip(atom_array.chain_id, atom_array.res_id, atom_array.res_name, atom_array.ins_code))
                     atom_array_binding_residues = atom_array[[res_tuple in residues for res_tuple in atom_array.res_tuples]]
-                    atom_array_binding_residues = atom_array_binding_residues[bs.filter_amino_acids(atom_array_binding_residues)]
+                    atom_array_binding_residues = atom_array_binding_residues[bs.filter_amino_acids(atom_array_binding_residues)] #provide a protein-centric bindng-site graphs
                     item = process_one(atom_array_binding_residues)
                     item['id'] = prot_name
                     item['binder'] = binders[i]
